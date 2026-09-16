@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Letters!</title>
+  <meta name="description" content="Letters is a fast-paced party game for 2 to 30 players. One Judge reads a letter and a topic, everyone else races to shout an answer, and the first to 15 Letters wins.">
+  <meta name="theme-color" content="#FFD3B6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Letters!">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main id="app">
+
+    <!-- ── Home ─────────────────────────────────────────── -->
+    <section class="screen" id="screen-home" data-screen="home">
+      <div class="home-hero">
+        <div class="logo" aria-label="Letters!">
+          <span class="tile tile-mint">L</span><span class="tile tile-peach">E</span><span class="tile tile-lavender">T</span><span class="tile tile-sky">T</span><span class="tile tile-lemon">E</span><span class="tile tile-pink">R</span><span class="tile tile-mint">S</span><span class="tile tile-peach bang">!</span>
+        </div>
+        <p class="tagline">The shout-it-out party game for 2 to 30 players.</p>
+      </div>
+      <div class="stack">
+        <button class="btn btn-primary btn-xl" data-action="go-setup">New Game</button>
+        <button class="btn btn-secondary btn-xl hidden" id="btn-resume" data-action="resume">Resume Game</button>
+        <button class="btn btn-ghost" data-action="go-howto">How to Play</button>
+      </div>
+      <p class="footnote">Quick 5 to 15 minute rounds. One phone. Zero setup.</p>
+    </section>
+
+    <!-- ── How to play ──────────────────────────────────── -->
+    <section class="screen" id="screen-howto" data-screen="howto">
+      <header class="topbar">
+        <button class="btn btn-icon" data-action="go-home" aria-label="Back">←</button>
+        <h2>How to Play</h2>
+        <span class="topbar-spacer"></span>
+      </header>
+      <ol class="howto">
+        <li><span class="howto-num tile-mint">1</span><div><strong>Pick a Judge.</strong> The Judge holds the phone, enters everyone's names, and starts the game.</div></li>
+        <li><span class="howto-num tile-peach">2</span><div><strong>Read the card.</strong> Each card shows a random letter and two topics. The Judge reads the letter and one of the topics out loud.</div></li>
+        <li><span class="howto-num tile-lavender">3</span><div><strong>Shout it out!</strong> Everyone races to yell a word that fits the topic and starts with the letter. Letter <b>D</b> for <i>Dessert</i>? <i>Donut!</i></div></li>
+        <li><span class="howto-num tile-sky">4</span><div><strong>Award the Letter.</strong> The Judge taps the name of the first player with a correct answer. Each card won is one Letter.</div></li>
+        <li><span class="howto-num tile-lemon">5</span><div><strong>First to 15 wins.</strong> Or play Casual mode with no scores, just laughs.</div></li>
+      </ol>
+      <div class="stack">
+        <button class="btn btn-primary btn-xl" data-action="go-setup">Let's Play</button>
+      </div>
+    </section>
+
+    <!-- ── Setup ────────────────────────────────────────── -->
+    <section class="screen" id="screen-setup" data-screen="setup">
+      <header class="topbar">
+        <button class="btn btn-icon" data-action="go-home" aria-label="Back">←</button>
+        <h2>New Game</h2>
+        <span class="topbar-spacer"></span>
+      </header>
+
+      <div class="card-panel">
+        <div class="panel-title">
+          <h3>Players</h3>
+          <span class="pill" id="player-count">0 / 30</span>
+        </div>
+        <form class="add-player" id="form-add-player" autocomplete="off">
+          <input type="text" id="input-player" placeholder="Type a name…" maxlength="20" enterkeyhint="done" autocapitalize="words" aria-label="Player name">
+          <button type="submit" class="btn btn-primary">Add</button>
+        </form>
+        <div class="chips" id="player-chips" aria-live="polite"></div>
+        <p class="hint" id="player-hint">Add at least 2 players to start.</p>
+      </div>
+
+      <div class="card-panel">
+        <h3>Mode</h3>
+        <div class="segmented" role="radiogroup" aria-label="Game mode">
+          <button class="seg" data-action="set-mode" data-value="classic" role="radio">
+            <span class="seg-title">Classic</span>
+            <span class="seg-sub">First to 15 Letters</span>
+          </button>
+          <button class="seg" data-action="set-mode" data-value="casual" role="radio">
+            <span class="seg-title">Casual</span>
+            <span class="seg-sub">No scores, just play</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card-panel">
+        <h3>Judge</h3>
+        <label class="field">
+          <span>Who's holding the phone?</span>
+          <select id="select-judge" aria-label="Judge"></select>
+        </label>
+        <label class="toggle-row">
+          <span>
+            <strong>Pass the phone</strong>
+            <small>Rotate the Judge after every card</small>
+          </span>
+          <input type="checkbox" id="toggle-rotate" class="toggle">
+        </label>
+      </div>
+
+      <div class="card-panel">
+        <h3>Extras</h3>
+        <div class="field">
+          <span>Round timer</span>
+          <div class="segmented small" role="radiogroup" aria-label="Round timer">
+            <button class="seg" data-action="set-timer" data-value="0" role="radio">Off</button>
+            <button class="seg" data-action="set-timer" data-value="15" role="radio">15s</button>
+            <button class="seg" data-action="set-timer" data-value="30" role="radio">30s</button>
+            <button class="seg" data-action="set-timer" data-value="60" role="radio">60s</button>
+          </div>
+        </div>
+        <label class="toggle-row">
+          <span>
+            <strong>Tricky letters</strong>
+            <small>Include Q, X and Z in the deck</small>
+          </span>
+          <input type="checkbox" id="toggle-tricky" class="toggle">
+        </label>
+      </div>
+
+      <div class="sticky-footer">
+        <button class="btn btn-primary btn-xl" id="btn-start" data-action="start-game" disabled>Start Game</button>
+      </div>
+    </section>
+
+    <!-- ── Game ─────────────────────────────────────────── -->
+    <section class="screen" id="screen-game" data-screen="game">
+      <header class="topbar">
+        <button class="btn btn-icon" data-action="open-menu" aria-label="Menu">☰</button>
+        <button class="judge-badge" data-action="open-judge-picker" id="judge-badge" title="Change the Judge">
+          <span class="judge-icon">⚖️</span>
+          <span class="judge-label">Judge</span>
+          <strong id="judge-name">—</strong>
+        </button>
+        <button class="btn btn-icon" data-action="open-scores" id="btn-scores" aria-label="Scores">🏆</button>
+      </header>
+
+      <div class="deck-area">
+        <div class="deck-shadow deck-shadow-2"></div>
+        <div class="deck-shadow deck-shadow-1"></div>
+        <article class="game-card" id="game-card">
+          <div class="card-top">
+            <span class="card-count" id="card-count">Card 1</span>
+            <div class="timer hidden" id="timer">
+              <svg viewBox="0 0 60 60" aria-hidden="true">
+                <circle class="timer-track" cx="30" cy="30" r="26"></circle>
+                <circle class="timer-ring" id="timer-ring" cx="30" cy="30" r="26"></circle>
+              </svg>
+              <span class="timer-text" id="timer-text">30</span>
+            </div>
+          </div>
+          <div class="card-letter" id="card-letter">?</div>
+          <p class="card-hint">Say a word starting with this letter that is…</p>
+          <div class="card-topics" id="card-topics"></div>
+        </article>
+      </div>
+
+      <div class="award-area">
+        <div class="award-title">
+          <h3 id="award-heading">Who got it?</h3>
+          <button class="btn btn-ghost btn-small" data-action="skip-card">Skip card ↻</button>
+        </div>
+        <div class="player-grid" id="player-grid"></div>
+      </div>
+    </section>
+
+    <!-- ── Victory ──────────────────────────────────────── -->
+    <section class="screen" id="screen-victory" data-screen="victory">
+      <div class="victory-hero">
+        <div class="trophy">🏆</div>
+        <p class="victory-kicker">We have a winner!</p>
+        <h1 class="victory-name" id="victory-name">—</h1>
+        <p class="victory-sub" id="victory-sub">collected 15 Letters</p>
+      </div>
+      <div class="card-panel">
+        <h3>Final standings</h3>
+        <ol class="standings" id="standings"></ol>
+      </div>
+      <div class="stack">
+        <button class="btn btn-primary btn-xl" data-action="rematch">Rematch</button>
+        <button class="btn btn-secondary" data-action="go-setup">Change Players</button>
+        <button class="btn btn-ghost" data-action="go-home">Home</button>
+      </div>
+    </section>
+
+    <!-- ── Casual summary ───────────────────────────────── -->
+    <section class="screen" id="screen-summary" data-screen="summary">
+      <div class="victory-hero">
+        <div class="trophy">🎉</div>
+        <p class="victory-kicker">Thanks for playing!</p>
+        <h1 class="victory-name" id="summary-title">Nice round</h1>
+        <p class="victory-sub" id="summary-sub">You played 0 cards</p>
+      </div>
+      <div class="stack">
+        <button class="btn btn-primary btn-xl" data-action="rematch">Play Again</button>
+        <button class="btn btn-secondary" data-action="go-setup">Change Players</button>
+        <button class="btn btn-ghost" data-action="go-home">Home</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom sheet -->
+  <div class="sheet-backdrop hidden" id="sheet" data-action="close-sheet">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="sheet-handle"></div>
+      <h3 id="sheet-title"></h3>
+      <div class="sheet-body" id="sheet-body"></div>
+    </div>
+  </div>
+
+  <div class="toast hidden" id="toast" role="status" aria-live="polite">
+    <span id="toast-text"></span>
+    <button class="toast-action hidden" id="toast-action" data-action="undo">Undo</button>
+  </div>
+
+  <canvas id="confetti" aria-hidden="true"></canvas>
+
+  <script src="js/topics.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "Letters!",
+  "short_name": "Letters",
+  "description": "The fast-paced shout-it-out party game for 2 to 30 players. One Judge, one phone, first to 15 Letters wins.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF8F1",
+  "theme_color": "#FFD3B6",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

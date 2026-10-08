@@ -10,12 +10,15 @@
   const TOPICS = window.LETTERS_TOPICS || [];
   const STATE_KEY = 'letters-game/state/v1';
   const PREFS_KEY = 'letters-game/prefs/v1';
-  const TARGET = 15;
+  const DECK_KEY = 'letters-game/deck/v1';
+  const TARGETS = [5, 10, 15, 20];
+  const DEFAULT_TARGET = 15;
   const MIN_PLAYERS = 2;
   const MAX_PLAYERS = 30;
   const TRICKY = ['Q', 'X', 'Z'];
   const CARD_COLORS = ['mint', 'peach', 'lavender', 'sky', 'lemon', 'pink'];
   const RING_LENGTH = 163.36; // 2 * PI * 26
+  const RECENT_LETTERS = 8;   // a letter won't come back until this many others have been dealt
 
   // How many copies of each letter go into the letter bag. Weighted so
   // friendly letters come up more often than awkward ones.
@@ -61,10 +64,16 @@
     } catch (e) { /* storage unavailable: play on without persistence */ }
   }
 
+  function normalizeTarget(n) {
+    n = Number(n);
+    return TARGETS.includes(n) ? n : DEFAULT_TARGET;
+  }
+
   // ── Setup preferences (what the Judge picked on the setup screen) ──
   const defaultPrefs = () => ({
     players: [],          // [{ id, name }]
     mode: 'classic',      // 'classic' | 'casual'
+    target: DEFAULT_TARGET,
     judgeId: null,
     rotateJudge: false,
     timer: 0,             // seconds, 0 = off
@@ -72,6 +81,7 @@
   });
   let prefs = Object.assign(defaultPrefs(), loadJSON(PREFS_KEY) || {});
   if (!Array.isArray(prefs.players)) prefs.players = [];
+  prefs.target = normalizeTarget(prefs.target);
 
   // ── Live game state ────────────────────────────────────
   let game = loadJSON(STATE_KEY); // null when no game in progress
@@ -80,7 +90,7 @@
   let confettiRaf = null;
 
   function savePrefs() { saveJSON(PREFS_KEY, prefs); }
-  function saveGame() { saveJSON(STATE_KEY, game); }
+  function saveGame() { saveJSON(STATE_KEY, game); saveDeck(); }
 
   // ── Screen routing ─────────────────────────────────────
   function show(name) {
@@ -97,6 +107,14 @@
   }
 
   // ── Setup ──────────────────────────────────────────────
+  // Casual mode works with no names at all: the phone just deals cards and
+  // whoever's holding it taps "Next card". Classic needs at least 2 players.
+  function canStart() {
+    const n = prefs.players.length;
+    if (prefs.mode === 'casual') return n === 0 || n >= MIN_PLAYERS;
+    return n >= MIN_PLAYERS;
+  }
+
   function renderSetup() {
     const chips = $('#player-chips');
     chips.innerHTML = prefs.players.map((p, i) => `
@@ -106,15 +124,19 @@
       </span>`).join('');
 
     const n = prefs.players.length;
+    const casual = prefs.mode === 'casual';
     $('#player-count').textContent = `${n} / ${MAX_PLAYERS}`;
+    $('#players-optional').classList.toggle('hidden', !casual);
     const hint = $('#player-hint');
-    if (n === 0) hint.textContent = 'Add at least 2 players to start. The Judge plays too!';
+    if (n === 0 && casual) hint.textContent = 'Names are optional in Casual. Just hit Start and pass the phone around!';
+    else if (n === 0) hint.textContent = 'Add at least 2 players to start. The Judge plays too!';
+    else if (n < MIN_PLAYERS && casual) hint.textContent = 'Add one more player, or remove the name to play without names.';
     else if (n < MIN_PLAYERS) hint.textContent = `Add ${MIN_PLAYERS - n} more player to start.`;
     else if (n >= MAX_PLAYERS) hint.textContent = 'That is a full house! 30 players max.';
     else hint.textContent = 'Tap × to remove someone.';
 
     $('#input-player').disabled = n >= MAX_PLAYERS;
-    $('#btn-start').disabled = n < MIN_PLAYERS;
+    $('#btn-start').disabled = !canStart();
 
     // Mode
     $$('[data-action="set-mode"]').forEach((b) => {
@@ -122,8 +144,16 @@
       b.classList.toggle('active', on);
       b.setAttribute('aria-checked', on);
     });
+    $('#classic-sub').textContent = `First to ${prefs.target} Letters`;
+    $('#target-field').classList.toggle('hidden', casual);
+    $$('[data-action="set-target"]').forEach((b) => {
+      const on = Number(b.dataset.value) === prefs.target;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on);
+    });
 
-    // Judge
+    // Judge (only matters once there are names)
+    $('#panel-judge').classList.toggle('hidden', n === 0);
     if (!prefs.players.some((p) => p.id === prefs.judgeId)) {
       prefs.judgeId = prefs.players.length ? prefs.players[0].id : null;
     }
@@ -165,6 +195,30 @@
   }
 
   // ── Decks ──────────────────────────────────────────────
+  // The topic and letter bags live outside any single game, so a rematch or
+  // a brand-new game keeps dealing from where the last one left off instead
+  // of reshuffling and handing out the same cards again.
+  function loadDeck(tricky) {
+    const d = loadJSON(DECK_KEY) || {};
+    const topicBag = (d.topicCount === TOPICS.length && Array.isArray(d.topicBag))
+      ? d.topicBag.filter((i) => Number.isInteger(i) && i >= 0 && i < TOPICS.length)
+      : [];
+    const letterBag = (d.tricky === !!tricky && Array.isArray(d.letterBag)) ? d.letterBag : [];
+    const recentLetters = Array.isArray(d.recentLetters) ? d.recentLetters : [];
+    return { topicBag, letterBag, recentLetters };
+  }
+
+  function saveDeck() {
+    if (!game) return;
+    saveJSON(DECK_KEY, {
+      topicCount: TOPICS.length,
+      topicBag: game.topicBag,
+      letterBag: game.letterBag,
+      tricky: !!game.tricky,
+      recentLetters: game.recentLetters
+    });
+  }
+
   function buildLetterBag(includeTricky) {
     const bag = [];
     Object.keys(LETTER_WEIGHTS).forEach((letter) => {
@@ -175,19 +229,30 @@
   }
 
   function drawLetter() {
-    if (!game.letterBag.length) game.letterBag = buildLetterBag(game.tricky);
-    let letter = game.letterBag.pop();
-    // Avoid the same letter twice in a row when we have a choice.
-    if (game.card && letter === game.card.letter && game.letterBag.length) {
-      const swap = game.letterBag.pop();
-      game.letterBag.unshift(letter);
-      letter = swap;
+    if (!Array.isArray(game.recentLetters)) game.recentLetters = [];
+    const recent = game.recentLetters;
+    let idx = -1;
+    for (let attempt = 0; attempt < 2 && idx < 0; attempt++) {
+      if (!game.letterBag.length) game.letterBag = buildLetterBag(game.tricky);
+      // Take the top-most letter that hasn't been dealt recently.
+      for (let i = game.letterBag.length - 1; i >= 0; i--) {
+        if (!recent.includes(game.letterBag[i])) { idx = i; break; }
+      }
+      // Everything left in the bag was dealt recently: top it up and look again.
+      if (idx < 0) game.letterBag = buildLetterBag(game.tricky).concat(game.letterBag);
     }
+    if (idx < 0) idx = game.letterBag.length - 1;
+    const letter = game.letterBag.splice(idx, 1)[0];
+    recent.push(letter);
+    while (recent.length > RECENT_LETTERS) recent.shift();
     return letter;
   }
 
   function drawTopics() {
-    if (game.topicBag.length < 2) game.topicBag = shuffle(TOPICS.map((_, i) => i));
+    if (game.topicBag.length < 2) {
+      // Leftovers go on top so they're dealt first, then a fresh shuffle.
+      game.topicBag = shuffle(TOPICS.map((_, i) => i)).concat(game.topicBag);
+    }
     return [game.topicBag.pop(), game.topicBag.pop()];
   }
 
@@ -200,22 +265,40 @@
   }
 
   // ── Game lifecycle ─────────────────────────────────────
-  function startGame() {
-    if (prefs.players.length < MIN_PLAYERS) return;
-    let judgeIndex = prefs.players.findIndex((p) => p.id === prefs.judgeId);
+  function setupFromPrefs() {
+    return {
+      mode: prefs.mode,
+      target: normalizeTarget(prefs.target),
+      players: prefs.players.map((p) => ({ id: p.id, name: p.name })),
+      judgeId: prefs.judgeId,
+      rotateJudge: !!prefs.rotateJudge,
+      timer: Number(prefs.timer) || 0,
+      tricky: !!prefs.tricky
+    };
+  }
+
+  function startGame(setup) {
+    setup = setup || setupFromPrefs();
+    const n = setup.players.length;
+    if (setup.mode === 'classic' && n < MIN_PLAYERS) return;
+    if (setup.mode === 'casual' && n === 1) return;
+
+    let judgeIndex = setup.players.findIndex((p) => p.id === setup.judgeId);
     if (judgeIndex < 0) judgeIndex = 0;
+    const deck = loadDeck(setup.tricky);
 
     game = {
       phase: 'game',
-      mode: prefs.mode,
-      target: TARGET,
-      players: prefs.players.map((p) => ({ id: p.id, name: p.name, score: 0 })),
+      mode: setup.mode,
+      target: normalizeTarget(setup.target),
+      players: setup.players.map((p) => ({ id: p.id, name: p.name, score: 0 })),
       judgeIndex,
-      rotateJudge: !!prefs.rotateJudge,
-      timer: Number(prefs.timer) || 0,
-      tricky: !!prefs.tricky,
-      letterBag: [],
-      topicBag: [],
+      rotateJudge: n ? !!setup.rotateJudge : false,
+      timer: Number(setup.timer) || 0,
+      tricky: !!setup.tricky,
+      letterBag: deck.letterBag,
+      topicBag: deck.topicBag,
+      recentLetters: deck.recentLetters,
       card: null,
       cardNumber: 0,
       cardsAwarded: 0,
@@ -229,17 +312,35 @@
     startTimer();
   }
 
+  // Straight into a no-names Casual game from the home screen.
+  function quickPlay() {
+    prefs.mode = 'casual';
+    savePrefs();
+    startGame(Object.assign(setupFromPrefs(), { mode: 'casual', players: [] }));
+  }
+
   function rematch() {
     if (!game) return renderSetup(), show('setup');
     // Same players, same settings, fresh scores. Keep prefs in sync too.
-    prefs.players = game.players.map((p) => ({ id: p.id, name: p.name }));
+    if (game.players.length) {
+      prefs.players = game.players.map((p) => ({ id: p.id, name: p.name }));
+      prefs.judgeId = game.players[game.judgeIndex] ? game.players[game.judgeIndex].id : game.players[0].id;
+    }
     prefs.mode = game.mode;
+    prefs.target = normalizeTarget(game.target);
     prefs.rotateJudge = game.rotateJudge;
     prefs.timer = game.timer;
     prefs.tricky = game.tricky;
-    prefs.judgeId = game.players[game.judgeIndex] ? game.players[game.judgeIndex].id : game.players[0].id;
     savePrefs();
-    startGame();
+    startGame({
+      mode: game.mode,
+      target: game.target,
+      players: game.players.map((p) => ({ id: p.id, name: p.name })),
+      judgeId: game.players[game.judgeIndex] ? game.players[game.judgeIndex].id : null,
+      rotateJudge: game.rotateJudge,
+      timer: game.timer,
+      tricky: game.tricky
+    });
   }
 
   function resumeGame() {
@@ -265,10 +366,11 @@
     }
   }
 
-  function currentJudge() { return game.players[game.judgeIndex]; }
+  const freePlay = () => !!game && game.players.length === 0;
+  function currentJudge() { return game.players[game.judgeIndex] || null; }
 
   function advanceJudge() {
-    if (!game.rotateJudge) return;
+    if (!game.rotateJudge || !game.players.length) return;
     game.judgeIndex = (game.judgeIndex + 1) % game.players.length;
   }
 
@@ -276,7 +378,8 @@
     if (!game || game.phase !== 'game') return;
     const player = game.players.find((p) => p.id === playerId);
     if (!player) return;
-    if (player.id === currentJudge().id) { toast('The Judge can\'t win their own card!'); return; }
+    const judge = currentJudge();
+    if (judge && player.id === judge.id) { toast('The Judge can\'t win their own card!'); return; }
 
     stopTimer();
     game.history.push({
@@ -321,6 +424,8 @@
     if (game.card) {
       game.letterBag.push(game.card.letter);
       game.topicBag.push(...game.card.topics);
+      const recent = game.recentLetters || [];
+      if (recent[recent.length - 1] === game.card.letter) recent.pop();
     }
     game.card = last.card;
     game.judgeIndex = last.judgeIndex;
@@ -332,7 +437,8 @@
     toast('Undone. Same card, try again!');
   }
 
-  function skipCard() {
+  // "Skip card" with players, "Next card" when playing without names.
+  function nextCard() {
     if (!game || game.phase !== 'game') return;
     stopTimer();
     newCard();
@@ -360,11 +466,19 @@
   // ── Rendering: game ────────────────────────────────────
   function renderGame(dealAnimation) {
     if (!game) return;
-    $('#judge-name').textContent = currentJudge().name;
+    const free = freePlay();
+    const badge = $('#judge-badge');
+    badge.classList.toggle('static', free);
+    $('.judge-icon', badge).textContent = free ? '🎉' : '⚖️';
+    $('.judge-label', badge).textContent = free ? 'Casual play' : 'Judge';
+    $('#judge-name').classList.toggle('hidden', free);
+    if (!free) $('#judge-name').textContent = currentJudge().name;
     $('#btn-scores').classList.toggle('hidden', game.mode !== 'classic');
     $('#award-heading').textContent = game.mode === 'classic' ? 'Who got it?' : 'Who shouted it first?';
+    $('#award-area').classList.toggle('hidden', free);
+    $('#next-area').classList.toggle('hidden', !free);
     renderCard(dealAnimation);
-    renderPlayers();
+    if (!free) renderPlayers();
   }
 
   function renderCard(dealAnimation) {
@@ -396,7 +510,7 @@
     const judge = currentJudge();
     const topScore = Math.max(0, ...game.players.map((p) => p.score));
     $('#player-grid').innerHTML = game.players.map((p) => {
-      const isJudge = p.id === judge.id;
+      const isJudge = !!judge && p.id === judge.id;
       const isLeader = game.mode === 'classic' && topScore > 0 && p.score === topScore && !isJudge;
       const pct = clamp(Math.round((p.score / game.target) * 100), 0, 100);
       return `
@@ -439,9 +553,10 @@
 
   function renderSummary() {
     hideToast();
-    const n = game.cardsAwarded;
+    const n = freePlay() ? game.cardNumber : game.cardsAwarded;
     $('#summary-sub').textContent = n === 1 ? 'You played 1 card' : `You played ${n} cards`;
     $('#summary-title').textContent = n >= 30 ? 'Marathon round!' : n >= 15 ? 'Great round!' : 'Nice round';
+    $('#summary-players').textContent = freePlay() ? 'Add Players' : 'Change Players';
     show('summary');
     confetti(80);
   }
@@ -495,17 +610,19 @@
   function closeSheet() { $('#sheet').classList.add('hidden'); }
 
   function openMenu() {
+    const free = freePlay();
     openSheet('Menu', `
       <div class="menu-list">
-        <button class="menu-item" data-action="open-judge-picker"><span class="emoji">⚖️</span> Change the Judge</button>
+        ${free ? '' : '<button class="menu-item" data-action="open-judge-picker"><span class="emoji">⚖️</span> Change the Judge</button>'}
         ${game.mode === 'classic' ? '<button class="menu-item" data-action="open-scores"><span class="emoji">🏆</span> Scoreboard</button>' : ''}
-        <button class="menu-item" data-action="toggle-rotate-live"><span class="emoji">🔁</span> Pass the phone: <strong>${game.rotateJudge ? 'On' : 'Off'}</strong></button>
+        ${free ? '' : `<button class="menu-item" data-action="toggle-rotate-live"><span class="emoji">🔁</span> Pass the phone: <strong>${game.rotateJudge ? 'On' : 'Off'}</strong></button>`}
         <button class="menu-item" data-action="open-howto-sheet"><span class="emoji">📖</span> How to play</button>
         <button class="menu-item danger" data-action="confirm-end"><span class="emoji">🏁</span> End game</button>
       </div>`);
   }
 
   function openJudgePicker() {
+    if (freePlay()) return;
     openSheet('Who is the Judge?', `
       <div class="menu-list">
         ${game.players.map((p, i) => `
@@ -516,13 +633,14 @@
   }
 
   function openScores() {
+    const judge = currentJudge();
     const sorted = game.players.slice().sort((a, b) => b.score - a.score);
     openSheet('Scoreboard', `
       <ol class="standings">
         ${sorted.map((p, i) => `
           <li>
             <span class="rank ${'tile-' + CARD_COLORS[i % CARD_COLORS.length]}">${i + 1}</span>
-            <span class="who">${escapeHtml(p.name)}${p.id === currentJudge().id ? ' ⚖️' : ''}</span>
+            <span class="who">${escapeHtml(p.name)}${judge && p.id === judge.id ? ' ⚖️' : ''}</span>
             <span class="pts">${p.score} / ${game.target}</span>
           </li>`).join('')}
       </ol>
@@ -531,18 +649,22 @@
 
   function confirmEnd() {
     openSheet('End this game?', `
-      <p class="hint">${game.mode === 'classic' ? 'Nobody has reached 15 yet. You can see the standings and start a rematch.' : 'You can start a new round any time.'}</p>
+      <p class="hint">${game.mode === 'classic' ? `Nobody has reached ${game.target} yet. You can see the standings and start a rematch.` : 'You can start a new round any time.'}</p>
       <button class="btn btn-danger" data-action="end-game">End game</button>
       <button class="btn btn-ghost" data-action="close-sheet">Keep playing</button>`);
   }
 
   function openHowtoSheet() {
+    const free = freePlay();
+    const last = game.mode === 'classic'
+      ? `Stuck? Skip the card. First to ${game.target} Letters wins!`
+      : free ? 'No scores in Casual: just tap <b>Next card</b> and keep it moving.' : 'No scores in Casual. Stuck? Skip the card and keep it moving.';
     openSheet('How to play', `
       <ol class="howto">
-        <li><span class="howto-num tile-mint">1</span><div>The Judge reads the letter and <b>one</b> of the two topics out loud.</div></li>
+        <li><span class="howto-num tile-mint">1</span><div>${free ? 'Whoever is holding the phone' : 'The Judge'} reads the letter and <b>one</b> of the two topics out loud.</div></li>
         <li><span class="howto-num tile-peach">2</span><div>Everyone else shouts a word that fits the topic and starts with that letter.</div></li>
-        <li><span class="howto-num tile-lavender">3</span><div>The Judge taps the first player with a correct answer to award the Letter.</div></li>
-        <li><span class="howto-num tile-sky">4</span><div>Stuck? Skip the card. First to 15 Letters wins!</div></li>
+        <li><span class="howto-num tile-lavender">3</span><div>${free ? 'First correct answer wins the card. Bragging rights only!' : 'The Judge taps the first player with a correct answer to award the Letter.'}</div></li>
+        <li><span class="howto-num tile-sky">4</span><div>${last}</div></li>
       </ol>`);
   }
 
@@ -619,14 +741,16 @@
       case 'go-howto': show('howto'); break;
       case 'go-setup': renderSetup(); show('setup'); setTimeout(() => $('#input-player').focus({ preventScroll: true }), 50); break;
       case 'resume': resumeGame(); break;
+      case 'quick-play': quickPlay(); break;
       case 'remove-player': removePlayer(target.dataset.id); break;
       case 'set-mode': prefs.mode = target.dataset.value; renderSetup(); break;
+      case 'set-target': prefs.target = normalizeTarget(target.dataset.value); renderSetup(); break;
       case 'set-timer': prefs.timer = Number(target.dataset.value); renderSetup(); break;
       case 'start-game': startGame(); break;
 
       case 'choose-topic': chooseTopic(Number(target.dataset.index)); break;
       case 'award': award(target.dataset.id); break;
-      case 'skip-card': hideToast(); skipCard(); break;
+      case 'skip-card': hideToast(); nextCard(); break;
       case 'undo': undo(); break;
 
       case 'open-menu': openMenu(); break;

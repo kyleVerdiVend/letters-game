@@ -1,6 +1,6 @@
 /* Letters! service worker: cache the app shell so it works offline
    (game night rarely has good wifi). Network first, cache fallback. */
-const CACHE = 'letters-v1';
+const CACHE = 'letters-v2';
 const SHELL = [
   './',
   './index.html',

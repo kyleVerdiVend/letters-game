@@ -235,12 +235,22 @@ select:focus { border-color: var(--lavender-deep); }
 .toggle:checked { background: var(--mint-deep); }
 .toggle:checked::after { transform: translateX(22px); }
 
+/* The Start button sticks to the bottom. Instead of a solid block behind it
+   (which showed up as a pale box on the pastel background) the content
+   scrolling underneath is softly blurred and faded out. */
 .sticky-footer {
-  position: sticky; bottom: 0; margin-top: auto;
+  position: sticky; bottom: 0; margin-top: auto; z-index: 2;
   padding: 12px 0 calc(4px + env(safe-area-inset-bottom));
-  background: linear-gradient(to top, var(--cream) 60%, transparent);
   display: flex; flex-direction: column;
 }
+.sticky-footer::before {
+  content: ""; position: absolute; inset: -10px -16px -20px; z-index: -1; pointer-events: none;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(to top, #000 55%, transparent); mask-image: linear-gradient(to top, #000 55%, transparent);
+}
+
+.optional { font-size: .75rem; font-weight: 600; color: var(--ink-faint); margin-left: 4px; text-transform: lowercase; }
+.btn-sub { display: block; font-size: .8rem; font-weight: 500; color: var(--ink-soft); margin-top: 3px; }
 
 /* ── Game screen ─────────────────────────────────────── */
 #screen-game { gap: 14px; }
@@ -251,6 +261,8 @@ select:focus { border-color: var(--lavender-deep); }
   background: var(--white); box-shadow: var(--shadow-soft);
   max-width: 100%;
 }
+.judge-badge.static { cursor: default; }
+.judge-badge.static:active { transform: none; }
 .judge-label { color: var(--ink-soft); font-size: .85rem; font-weight: 600; }
 .judge-badge strong { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -320,6 +332,8 @@ select:focus { border-color: var(--lavender-deep); }
 .timer.done .timer-text { font-size: .7rem; }
 
 .award-area { display: flex; flex-direction: column; gap: 10px; }
+.next-area { display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.next-area .btn { width: 100%; }
 .award-title { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
 
 .player-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }

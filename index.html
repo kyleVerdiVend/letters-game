@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Letters!</title>
-  <meta name="description" content="Letters is a fast-paced party game for 2 to 30 players. One Judge reads a letter and a topic, everyone else races to shout an answer, and the first to 15 Letters wins.">
+  <meta name="description" content="Letters is a fast-paced party game for 2 to 30 players. One Judge reads a letter and a topic, everyone else races to shout an answer, and the first to the target score wins. Or play Casual with no names and no scores.">
   <meta name="theme-color" content="#FFD3B6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -31,6 +31,7 @@
       <div class="stack">
         <button class="btn btn-primary btn-xl" data-action="go-setup">New Game</button>
         <button class="btn btn-secondary btn-xl hidden" id="btn-resume" data-action="resume">Resume Game</button>
+        <button class="btn btn-secondary btn-xl" data-action="quick-play">Quick Play<span class="btn-sub">No names, no scores, just cards</span></button>
         <button class="btn btn-ghost" data-action="go-howto">How to Play</button>
       </div>
       <p class="footnote">Quick 5 to 15 minute rounds. One phone. Zero setup.</p>
@@ -44,11 +45,11 @@
         <span class="topbar-spacer"></span>
       </header>
       <ol class="howto">
-        <li><span class="howto-num tile-mint">1</span><div><strong>Pick a Judge.</strong> The Judge holds the phone, enters everyone's names, and starts the game.</div></li>
+        <li><span class="howto-num tile-mint">1</span><div><strong>Pick a Judge.</strong> The Judge holds the phone, enters everyone's names, and starts the game. (Playing Casual? Skip the names and hit Quick Play.)</div></li>
         <li><span class="howto-num tile-peach">2</span><div><strong>Read the card.</strong> Each card shows a random letter and two topics. The Judge reads the letter and one of the topics out loud.</div></li>
         <li><span class="howto-num tile-lavender">3</span><div><strong>Shout it out!</strong> Everyone races to yell a word that fits the topic and starts with the letter. Letter <b>D</b> for <i>Dessert</i>? <i>Donut!</i></div></li>
         <li><span class="howto-num tile-sky">4</span><div><strong>Award the Letter.</strong> The Judge taps the name of the first player with a correct answer. Each card won is one Letter.</div></li>
-        <li><span class="howto-num tile-lemon">5</span><div><strong>First to 15 wins.</strong> Or play Casual mode with no scores, just laughs.</div></li>
+        <li><span class="howto-num tile-lemon">5</span><div><strong>First to the target wins.</strong> Play to 5, 10, 15 or 20 Letters. Or play Casual mode: no scores, just tap Next card and keep laughing.</div></li>
       </ol>
       <div class="stack">
         <button class="btn btn-primary btn-xl" data-action="go-setup">Let's Play</button>
@@ -65,7 +66,7 @@
 
       <div class="card-panel">
         <div class="panel-title">
-          <h3>Players</h3>
+          <h3>Players <span class="optional hidden" id="players-optional">optional</span></h3>
           <span class="pill" id="player-count">0 / 30</span>
         </div>
         <form class="add-player" id="form-add-player" autocomplete="off">
@@ -81,16 +82,25 @@
         <div class="segmented" role="radiogroup" aria-label="Game mode">
           <button class="seg" data-action="set-mode" data-value="classic" role="radio">
             <span class="seg-title">Classic</span>
-            <span class="seg-sub">First to 15 Letters</span>
+            <span class="seg-sub" id="classic-sub">First to 15 Letters</span>
           </button>
           <button class="seg" data-action="set-mode" data-value="casual" role="radio">
             <span class="seg-title">Casual</span>
-            <span class="seg-sub">No scores, just play</span>
+            <span class="seg-sub">No scores, names optional</span>
           </button>
+        </div>
+        <div class="field" id="target-field">
+          <span>Play to</span>
+          <div class="segmented small" role="radiogroup" aria-label="Target score">
+            <button class="seg" data-action="set-target" data-value="5" role="radio">5</button>
+            <button class="seg" data-action="set-target" data-value="10" role="radio">10</button>
+            <button class="seg" data-action="set-target" data-value="15" role="radio">15</button>
+            <button class="seg" data-action="set-target" data-value="20" role="radio">20</button>
+          </div>
         </div>
       </div>
 
-      <div class="card-panel">
+      <div class="card-panel" id="panel-judge">
         <h3>Judge</h3>
         <label class="field">
           <span>Who's holding the phone?</span>
@@ -162,12 +172,17 @@
         </article>
       </div>
 
-      <div class="award-area">
+      <div class="award-area" id="award-area">
         <div class="award-title">
           <h3 id="award-heading">Who got it?</h3>
           <button class="btn btn-ghost btn-small" data-action="skip-card">Skip card ↻</button>
         </div>
         <div class="player-grid" id="player-grid"></div>
+      </div>
+
+      <div class="next-area hidden" id="next-area">
+        <button class="btn btn-primary btn-xl" data-action="skip-card">Next card →</button>
+        <p class="hint">First correct answer wins the card. Bragging rights only!</p>
       </div>
     </section>
 
@@ -200,7 +215,7 @@
       </div>
       <div class="stack">
         <button class="btn btn-primary btn-xl" data-action="rematch">Play Again</button>
-        <button class="btn btn-secondary" data-action="go-setup">Change Players</button>
+        <button class="btn btn-secondary" id="summary-players" data-action="go-setup">Change Players</button>
         <button class="btn btn-ghost" data-action="go-home">Home</button>
       </div>
     </section>

@@ -1,6 +1,6 @@
 /* Letters! service worker: cache the app shell so it works offline
    (game night rarely has good wifi). Network first, cache fallback. */
-const CACHE = 'letters-v2';
+const CACHE = 'letters-v3';
 const SHELL = [
   './',
   './index.html',
@@ -8,7 +8,11 @@ const SHELL = [
   './js/app.js',
   './js/topics.js',
   './manifest.webmanifest',
-  './icons/icon.svg'
+  './icons/icon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './fonts/Fredoka-latin.woff2',
+  './fonts/Fredoka-latin-ext.woff2'
 ];
 
 self.addEventListener('install', (event) => {

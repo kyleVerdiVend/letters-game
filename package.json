@@ -1,0 +1,27 @@
+{
+  "name": "letters-game",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Letters! The fast-paced shout-it-out party game for 2 to 30 players.",
+  "scripts": {
+    "build": "node scripts/build-www.js",
+    "sync": "npm run build && cap sync",
+    "ios": "npm run sync && cap open ios",
+    "android": "npm run sync && cap open android",
+    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#FFD3B6' --iconBackgroundColorDark '#FFD3B6' --splashBackgroundColor '#FFF8F1' --splashBackgroundColorDark '#FFF8F1'",
+    "serve": "npx serve ."
+  },
+  "dependencies": {
+    "@capacitor-community/keep-awake": "^8.0.1",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3"
+  }
+}

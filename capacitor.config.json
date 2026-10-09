@@ -1,0 +1,28 @@
+{
+  "appId": "com.lettersgame.app",
+  "appName": "Letters!",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#FFF8F1"
+  },
+  "android": {
+    "backgroundColor": "#FFF8F1"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 600,
+      "backgroundColor": "#FFF8F1",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT"
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "LIGHT"
+    }
+  }
+}

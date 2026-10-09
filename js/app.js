@@ -49,8 +49,49 @@
     })[c]);
   }
 
+  // ── Native shell (Capacitor) ───────────────────────────
+  // When wrapped as an iOS / Android app, Capacitor injects window.Capacitor
+  // and registers its plugins on Capacitor.Plugins. In a plain browser none of
+  // this exists and every helper below quietly falls back to web APIs.
+  const cap = window.Capacitor || null;
+  const isNative = !!(cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform());
+  const nativePlugin = (name) => (isNative && cap.Plugins && cap.Plugins[name]) || null;
+
   function vibrate(pattern) {
+    const haptics = nativePlugin('Haptics');
+    if (haptics) {
+      // iOS has no navigator.vibrate; use the Taptic engine instead.
+      const strong = Array.isArray(pattern) ? pattern.length > 1 : Number(pattern) >= 30;
+      haptics.impact({ style: strong ? 'MEDIUM' : 'LIGHT' }).catch(() => { /* ignore */ });
+      return;
+    }
     try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* ignore */ }
+  }
+
+  // Keep the screen on while a card is showing. The Judge holds the phone for
+  // the whole game and the display would otherwise sleep mid-round.
+  let wakeLock = null;
+  let wantAwake = false;
+  function keepAwake(on) {
+    wantAwake = !!on;
+    const plugin = nativePlugin('KeepAwake');
+    if (plugin) {
+      (on ? plugin.keepAwake() : plugin.allowSleep()).catch(() => { /* ignore */ });
+      return;
+    }
+    if (!('wakeLock' in navigator)) return;
+    if (on) {
+      if (wakeLock || document.visibilityState !== 'visible') return;
+      navigator.wakeLock.request('screen')
+        .then((lock) => {
+          wakeLock = lock;
+          lock.addEventListener('release', () => { wakeLock = null; });
+        })
+        .catch(() => { /* low battery or unsupported: play on */ });
+    } else if (wakeLock) {
+      wakeLock.release().catch(() => { /* ignore */ });
+      wakeLock = null;
+    }
   }
 
   function loadJSON(key) {
@@ -98,6 +139,7 @@
     window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
     if (name !== 'game') stopTimer();
     if (name !== 'victory' && name !== 'summary') stopConfetti();
+    keepAwake(name === 'game');
   }
 
   // ── Home ───────────────────────────────────────────────
@@ -787,6 +829,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && game && game.phase === 'game' && $('#screen-game').classList.contains('active')) {
       startTimer();
+      if (wantAwake) keepAwake(true);
     }
   });
 
@@ -801,7 +844,7 @@
     renderHome();
   }
 
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  if (!isNative && 'serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
     });

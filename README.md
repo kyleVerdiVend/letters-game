@@ -25,6 +25,44 @@ It is installable as a home-screen app (web manifest + service worker) and works
 offline once loaded. Deploy it to GitHub Pages, Netlify, Vercel or any static host
 by pointing at the repository root.
 
+## iPhone and Android apps
+
+The same web app is wrapped as native iOS and Android apps with
+[Capacitor](https://capacitorjs.com). The native projects live in `ios/` and
+`android/` and load the web files from a staged `www/` folder.
+
+```sh
+npm install          # Capacitor CLI, native platforms and plugins
+npm run sync         # stage web files into www/ and copy them into both native projects
+npm run ios          # sync, then open the Xcode project (needs a Mac with Xcode)
+npm run android      # sync, then open the project in Android Studio
+```
+
+Run `npm run sync` after every change to the web files. iOS uses Swift Package
+Manager, so CocoaPods is not required.
+
+**Store icons and splash screens** are generated from the source images in
+`assets/` with `npm run assets` (iOS and Android sets only; the PWA icons in
+`icons/` are committed directly).
+
+**Native touches**: the screen stays awake while a card is showing
+(`@capacitor-community/keep-awake`, Screen Wake Lock API on the web), awarding a
+card gives haptic feedback (`@capacitor/haptics`, `navigator.vibrate` on the web),
+and the service worker is skipped inside the native shell because the files ship
+with the app. All of it falls back quietly in a plain browser, so the web version
+is unchanged.
+
+**Shipping to the stores**
+
+1. iOS: open the project with `npm run ios`, set your Team under *Signing &
+   Capabilities*, bump the version and build number, then *Product > Archive* and
+   upload to App Store Connect. The app id is `com.lettersgame.app`; change it in
+   `capacitor.config.json` and `ios/App/App.xcodeproj` before your first upload if
+   you want a different one.
+2. Android: open with `npm run android`, create an upload keystore, then
+   *Build > Generate Signed Bundle* to produce the `.aab` for the Play Console.
+   The application id is set in `android/app/build.gradle`.
+
 ## Features
 
 - **Setup**: the Judge adds 2 to 30 player names and hits Start. In Casual mode names
